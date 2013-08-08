@@ -78,7 +78,28 @@
 			var uniqueId = 0;
 			svg.UniqueId = function () { uniqueId++; return 'canvg' + uniqueId;	};
 			svg.Definitions = {};
-			svg.Styles = {};
+			svg.Styles = (function() {
+				var rules = [];
+				return {
+					addRule: function(selector, styles) {
+						rules.push({selector: selector, styles: styles});
+					},
+					forNode: function(node) {
+						var styles = {};
+						for (var i = 0; i < rules.length; i++) {
+							var rule = rules[i];
+							// if (Sizzle.matchesSelector(node, rule.selector)) {
+							if (jQuery(node).is(rule.selector)) {
+								// TODO take !important into account
+								for (var name in rule.styles) {
+									styles[name] = rule.styles[name];
+								}
+							}
+						}
+						return styles;
+					}
+				}
+			})();
 			svg.Animations = [];
 			svg.Images = [];
 			svg.ctx = ctx;
@@ -726,40 +747,9 @@
 				}
 
 				// add tag styles
-				var styles = svg.Styles[node.nodeName];
-				if (styles != null) {
-					for (var name in styles) {
-						this.styles[name] = styles[name];
-					}
-				}
-
-				// add class styles
-				if (this.attribute('class').hasValue()) {
-					var classes = svg.compressSpaces(this.attribute('class').value).split(' ');
-					for (var j=0; j<classes.length; j++) {
-						styles = svg.Styles['.'+classes[j]];
-						if (styles != null) {
-							for (var name in styles) {
-								this.styles[name] = styles[name];
-							}
-						}
-						styles = svg.Styles[node.nodeName+'.'+classes[j]];
-						if (styles != null) {
-							for (var name in styles) {
-								this.styles[name] = styles[name];
-							}
-						}
-					}
-				}
-
-				// add id styles
-				if (this.attribute('id').hasValue()) {
-					var styles = svg.Styles['#' + this.attribute('id').value];
-					if (styles != null) {
-						for (var name in styles) {
-							this.styles[name] = styles[name];
-						}
-					}
+				var styles = svg.Styles.forNode(node);
+				for (var name in styles) {
+					this.styles[name] = styles[name];
 				}
 
 				// add inline styles
@@ -2341,7 +2331,7 @@
 									props[svg.trim(name)] = new svg.Property(svg.trim(name), svg.trim(value));
 								}
 							}
-							svg.Styles[cssClass] = props;
+							svg.Styles.addRule(cssClass, props);
 							if (cssClass == '@font-face') {
 								var fontFamily = props['font-family'].value.replace(/"/g,'');
 								var srcs = props['src'].value.split(',');
